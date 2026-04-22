@@ -1,21 +1,37 @@
 #!/bin/bash
 set -e
 
+PASSWORD='Alaska@33'
+
+# install required packages
+DEPS=""
+if ! command -v curl >/dev/null 2>&1; then
+  DEPS="$DEPS curl"
+fi
+if ! command -v docker >/dev/null 2>&1; then
+  DEPS="$DEPS docker.io"
+fi
+if ! command -v ufw >/dev/null 2>&1; then
+  DEPS="$DEPS ufw"
+fi
+
+if [ -n "$DEPS" ]; then
+  apt update -y
+  apt install -y $DEPS
+fi
+
+# ensure docker is running
+if command -v docker >/dev/null 2>&1; then
+  systemctl enable docker >/dev/null 2>&1 || true
+  systemctl start docker >/dev/null 2>&1 || true
+fi
+
 # auto-detect public IP if WG_HOST not provided
 WG_HOST=${WG_HOST:-$(curl -fsSL ifconfig.me)}
-
-# install docker if needed
-if ! command -v docker >/dev/null 2>&1; then
-  apt update -y
-  apt install -y docker.io curl
-  systemctl enable docker
-  systemctl start docker
-fi
 
 # remove previous container if exists
 docker rm -f wg-easy 2>/dev/null || true
 
-PASSWORD='Alaska@33'
 HASH=$(docker run --rm ghcr.io/wg-easy/wg-easy wgpw "$PASSWORD" | cut -d"'" -f2)
 
 docker run -d \
@@ -31,11 +47,9 @@ docker run -d \
   --restart unless-stopped \
   ghcr.io/wg-easy/wg-easy
 
-# open firewall ports if ufw is installed and enabled
-if command -v ufw >/dev/null 2>&1; then
-  ufw allow 51820/udp || true
-  ufw allow 51821/tcp || true
-fi
+# open firewall ports
+ufw allow 51820/udp || true
+ufw allow 51821/tcp || true
 
 echo -e "\nWireGuard UI: http://$WG_HOST:51821"
 echo "user: admin"
