@@ -31,6 +31,12 @@ docker run -d \
   --restart unless-stopped \
   ghcr.io/wg-easy/wg-easy
 
-echo "\nWireGuard UI: http://$WG_HOST:51821"
+# open firewall ports if ufw is installed and enabled
+if command -v ufw >/dev/null 2>&1; then
+  ufw allow 51820/udp || true
+  ufw allow 51821/tcp || true
+fi
+
+echo -e "\nWireGuard UI: http://$WG_HOST:51821"
 echo "user: admin"
 echo "pass: $PASSWORD"
